@@ -103,7 +103,6 @@ jobs:
           cache: true
 
       - name: Inject integration env secrets
-        if: ${{ secrets.INTEGRATION_ENV != '' }}
         run: |
           echo "${{ secrets.INTEGRATION_ENV }}" >> "$GITHUB_ENV"
 
