@@ -165,11 +165,13 @@ jobs:
 
       - name: Deployment summary
         run: |
-          echo "## Deployment Summary" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|-------|-------|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Environment | \`${{ inputs.environment }}\` |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Image | \`${{ inputs.image-name }}:${{ inputs.image-tag }}\` |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Host | \`${{ inputs.ssh-host }}\` |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Compose file | \`${{ inputs.compose-file-remote }}\` |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Triggered by | @${{ github.actor }} |" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## Deployment Summary"
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| Environment | \`${{ inputs.environment }}\` |"
+            echo "| Image | \`${{ inputs.image-name }}:${{ inputs.image-tag }}\` |"
+            echo "| Host | \`${{ inputs.ssh-host }}\` |"
+            echo "| Compose file | \`${{ inputs.compose-file-remote }}\` |"
+            echo "| Triggered by | @${{ github.actor }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
