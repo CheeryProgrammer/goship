@@ -1,0 +1,73 @@
+# Default golangci-lint configuration for Go projects.
+# Copy to your repository root and adjust as needed.
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: none
+  enable:
+    # Correctness
+    - errcheck        # check for unchecked errors
+    - gosimple        # simplification suggestions
+    - govet           # vet checks
+    - ineffassign     # detect unused variable assignments
+    - staticcheck     # static analysis
+    - unused          # detect unused code
+
+    # Style / best practices
+    - gofmt           # formatting
+    - goimports       # import ordering
+    - revive          # drop-in replacement for golint
+    - misspell        # spelling mistakes
+
+    # Security
+    - gosec           # security issues
+
+    # Complexity
+    - cyclop          # cyclomatic complexity
+    - gocognit        # cognitive complexity
+
+    # Performance
+    - prealloc        # slice pre-allocation
+
+    # Error handling
+    - wrapcheck       # ensure errors from external packages are wrapped
+    - errorlint       # find misuses of errors package
+
+linters-settings:
+  cyclop:
+    max-complexity: 15
+
+  gocognit:
+    min-complexity: 20
+
+  revive:
+    rules:
+      - name: exported
+        arguments:
+          - disableStutteringCheck
+
+  gosec:
+    excludes:
+      - G601   # implicit memory aliasing (fixed in Go 1.22+)
+
+  wrapcheck:
+    ignorePackageGlobs:
+      - "github.com/YOUR_ORG/*"   # adjust to your module prefix
+
+issues:
+  exclude-rules:
+    # Relax some rules for test files
+    - path: "_test\\.go"
+      linters:
+        - errcheck
+        - gosec
+        - wrapcheck
+    # Allow init() functions
+    - text: "^(func init)"
+      linters:
+        - gochecknoinits
+  max-same-issues: 5

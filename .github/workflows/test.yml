@@ -1,0 +1,81 @@
+name: Reusable — Unit Tests
+
+on:
+  workflow_call:
+    inputs:
+      go-version:
+        description: 'Go version to use (e.g. "1.23")'
+        type: string
+        default: '1.23'
+      working-directory:
+        description: 'Working directory relative to the repo root'
+        type: string
+        default: '.'
+      test-flags:
+        description: 'Extra flags forwarded to go test (e.g. "-race -count=1")'
+        type: string
+        default: '-race -count=1'
+      test-packages:
+        description: 'Package pattern to test (e.g. "./internal/...")'
+        type: string
+        default: './...'
+      coverage-threshold:
+        description: 'Minimum coverage percentage (0 = disabled)'
+        type: number
+        default: 0
+      upload-coverage:
+        description: 'Upload coverage to Codecov'
+        type: boolean
+        default: false
+    secrets:
+      CODECOV_TOKEN:
+        description: 'Codecov upload token (required when upload-coverage is true)'
+        required: false
+
+jobs:
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ inputs.go-version }}
+          cache: true
+
+      - name: Run tests
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          go test ${{ inputs.test-flags }} \
+            -coverprofile=coverage.out \
+            -covermode=atomic \
+            ${{ inputs.test-packages }}
+
+      - name: Check coverage threshold
+        if: ${{ inputs.coverage-threshold > 0 }}
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
+          echo "Total coverage: ${COVERAGE}%"
+          if (( $(echo "$COVERAGE < ${{ inputs.coverage-threshold }}" | bc -l) )); then
+            echo "::error::Coverage ${COVERAGE}% is below the threshold ${{ inputs.coverage-threshold }}%"
+            exit 1
+          fi
+
+      - name: Upload coverage report
+        if: ${{ inputs.upload-coverage }}
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ inputs.working-directory }}/coverage.out
+          fail_ci_if_error: true
+
+      - name: Archive coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ github.sha }}
+          path: ${{ inputs.working-directory }}/coverage.out
+          retention-days: 7

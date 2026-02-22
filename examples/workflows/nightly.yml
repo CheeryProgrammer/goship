@@ -1,0 +1,53 @@
+# ────────────────────────────────────────────────────────────────────────────
+# Copy this file to YOUR_REPO/.github/workflows/nightly.yml
+# Runs the full pipeline nightly to catch dependency regressions.
+# ────────────────────────────────────────────────────────────────────────────
+name: Nightly
+
+on:
+  schedule:
+    - cron: '0 2 * * *'   # 02:00 UTC every night
+  workflow_dispatch:        # allow manual trigger
+
+jobs:
+  ci:
+    name: Nightly CI
+    uses: YOUR_ORG/go-pipelines/.github/workflows/ci-pipeline.yml@main
+    with:
+      go-version: '1.23'
+      binary-name: myapp
+      main-package: './cmd/server'
+      # Full test suite with race detector
+      test-flags: '-race -count=3'
+      run-integration-tests: true
+      postgres-enabled: true
+      redis-enabled: true
+      coverage-threshold: 70
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      INTEGRATION_ENV: ${{ secrets.INTEGRATION_ENV }}
+
+  notify-on-failure:
+    name: Notify on failure
+    needs: ci
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Slack notification
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": ":red_circle: Nightly CI failed on *${{ github.repository }}*",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": ":red_circle: *Nightly CI failed*\nRepo: <${{ github.server_url }}/${{ github.repository }}|${{ github.repository }}>\nRun: <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
+                  }
+                }
+              ]
+            }

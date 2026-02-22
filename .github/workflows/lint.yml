@@ -1,0 +1,48 @@
+name: Reusable — Lint
+
+on:
+  workflow_call:
+    inputs:
+      go-version:
+        description: 'Go version to use (e.g. "1.23")'
+        type: string
+        default: '1.23'
+      golangci-lint-version:
+        description: 'golangci-lint version (e.g. "v1.62")'
+        type: string
+        default: 'v1.62'
+      working-directory:
+        description: 'Working directory relative to the repo root'
+        type: string
+        default: '.'
+      timeout:
+        description: 'Lint timeout (e.g. "5m")'
+        type: string
+        default: '5m'
+      extra-args:
+        description: 'Additional arguments forwarded to golangci-lint'
+        type: string
+        default: ''
+
+jobs:
+  lint:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ inputs.go-version }}
+          cache: true
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: ${{ inputs.golangci-lint-version }}
+          working-directory: ${{ inputs.working-directory }}
+          args: --timeout=${{ inputs.timeout }} ${{ inputs.extra-args }}

@@ -1,0 +1,91 @@
+name: Reusable — Build
+
+on:
+  workflow_call:
+    inputs:
+      go-version:
+        description: 'Go version to use (e.g. "1.23")'
+        type: string
+        default: '1.23'
+      working-directory:
+        description: 'Working directory relative to the repo root'
+        type: string
+        default: '.'
+      binary-name:
+        description: 'Output binary name'
+        type: string
+        default: 'app'
+      main-package:
+        description: 'Path to the main package (e.g. "./cmd/server")'
+        type: string
+        default: './...'
+      build-flags:
+        description: 'Extra go build flags (e.g. "-race")'
+        type: string
+        default: ''
+      ldflags:
+        description: 'Linker flags passed via -ldflags'
+        type: string
+        default: '-s -w'
+      os:
+        description: 'Target OS (GOOS)'
+        type: string
+        default: 'linux'
+      arch:
+        description: 'Target architecture (GOARCH)'
+        type: string
+        default: 'amd64'
+      upload-artifact:
+        description: 'Whether to upload the built binary as a workflow artifact'
+        type: boolean
+        default: true
+      artifact-retention-days:
+        description: 'Retention days for the uploaded artifact'
+        type: number
+        default: 7
+    outputs:
+      artifact-name:
+        description: 'Name of the uploaded artifact (empty when upload-artifact is false)'
+        value: ${{ jobs.build.outputs.artifact-name }}
+
+jobs:
+  build:
+    name: Build (${{ inputs.os }}/${{ inputs.arch }})
+    runs-on: ubuntu-latest
+    outputs:
+      artifact-name: ${{ steps.meta.outputs.artifact-name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ inputs.go-version }}
+          cache: true
+
+      - name: Build
+        working-directory: ${{ inputs.working-directory }}
+        env:
+          GOOS: ${{ inputs.os }}
+          GOARCH: ${{ inputs.arch }}
+          CGO_ENABLED: '0'
+        run: |
+          mkdir -p ./bin
+          go build ${{ inputs.build-flags }} \
+            -ldflags "${{ inputs.ldflags }}" \
+            -o ./bin/${{ inputs.binary-name }} \
+            ${{ inputs.main-package }}
+
+      - name: Compute artifact name
+        id: meta
+        run: echo "artifact-name=${{ inputs.binary-name }}-${{ inputs.os }}-${{ inputs.arch }}-${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifact
+        if: ${{ inputs.upload-artifact }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.artifact-name }}
+          path: ${{ inputs.working-directory }}/bin/${{ inputs.binary-name }}
+          retention-days: ${{ inputs.artifact-retention-days }}
+          if-no-files-found: error

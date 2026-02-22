@@ -1,0 +1,181 @@
+name: Reusable — CD Pipeline
+
+# Orchestrates: docker-build+push → db-migrate → deploy (SSH + Docker Compose)
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Deployment environment (staging | production | …)'
+        type: string
+        required: true
+      image-name:
+        description: 'Docker image name without tag (e.g. "ghcr.io/org/app")'
+        type: string
+        required: true
+      image-tag:
+        description: 'Override image tag. Defaults to short SHA when empty.'
+        type: string
+        default: ''
+
+      # Docker
+      dockerfile:
+        description: 'Path to Dockerfile'
+        type: string
+        default: 'Dockerfile'
+      context:
+        description: 'Docker build context path'
+        type: string
+        default: '.'
+      platforms:
+        description: 'Target platforms'
+        type: string
+        default: 'linux/amd64'
+      build-args:
+        description: 'Newline-separated docker build-args'
+        type: string
+        default: ''
+
+      # Migration
+      run-migrations:
+        description: 'Run database migrations before deploy'
+        type: boolean
+        default: false
+      migration-tool:
+        description: 'Migration tool: golang-migrate | goose'
+        type: string
+        default: 'golang-migrate'
+      migrations-dir:
+        description: 'Path to migrations directory'
+        type: string
+        default: 'migrations'
+      db-driver:
+        description: 'Database driver (used by goose)'
+        type: string
+        default: 'postgres'
+      migration-dry-run:
+        description: 'Dry-run migrations (print without applying)'
+        type: boolean
+        default: false
+
+      # Deploy
+      ssh-host:
+        description: 'Target SSH host'
+        type: string
+        required: true
+      ssh-user:
+        description: 'SSH user on the remote host'
+        type: string
+        default: 'deploy'
+      ssh-port:
+        description: 'SSH port'
+        type: string
+        default: '22'
+      compose-file-local:
+        description: 'Path to docker-compose.yml in the repository'
+        type: string
+        default: 'docker-compose.yml'
+      compose-file-remote:
+        description: 'Destination path on the remote host'
+        type: string
+        default: '~/app/docker-compose.yml'
+      service-name:
+        description: 'Docker Compose service name to update (empty = all)'
+        type: string
+        default: ''
+      ssh-known-hosts:
+        description: 'known_hosts entry for the target server'
+        type: string
+        default: ''
+
+    secrets:
+      REGISTRY_USERNAME:
+        description: 'Registry username'
+        required: true
+      REGISTRY_PASSWORD:
+        description: 'Registry password/token'
+        required: true
+      SSH_PRIVATE_KEY:
+        description: 'SSH private key for the deploy user'
+        required: true
+      DATABASE_URL:
+        description: 'Database URL for migrations'
+        required: false
+
+    outputs:
+      image-tag:
+        description: 'Image tag that was built and deployed'
+        value: ${{ jobs.resolve-tag.outputs.tag }}
+      image-digest:
+        description: 'Image digest'
+        value: ${{ jobs.docker.outputs.image-digest }}
+
+jobs:
+  resolve-tag:
+    name: Resolve image tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - name: Compute tag
+        id: tag
+        run: |
+          TAG="${{ inputs.image-tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="sha-$(echo '${{ github.sha }}' | cut -c1-7)"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+  docker:
+    name: Docker Build & Push
+    needs: resolve-tag
+    uses: ./.github/workflows/docker-build.yml
+    with:
+      image-name: ${{ inputs.image-name }}
+      dockerfile: ${{ inputs.dockerfile }}
+      context: ${{ inputs.context }}
+      platforms: ${{ inputs.platforms }}
+      build-args: ${{ inputs.build-args }}
+      push: true
+    secrets:
+      REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+      REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+
+  migrate:
+    name: DB Migration
+    if: ${{ inputs.run-migrations }}
+    needs: docker
+    uses: ./.github/workflows/db-migrate.yml
+    with:
+      migration-tool: ${{ inputs.migration-tool }}
+      migrations-dir: ${{ inputs.migrations-dir }}
+      db-driver: ${{ inputs.db-driver }}
+      direction: up
+      dry-run: ${{ inputs.migration-dry-run }}
+      environment: ${{ inputs.environment }}
+    secrets:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+  deploy:
+    name: Deploy
+    needs:
+      - resolve-tag
+      - docker
+      - migrate
+    if: always() && needs.docker.result == 'success' && (needs.migrate.result == 'success' || needs.migrate.result == 'skipped')
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: ${{ inputs.environment }}
+      image-name: ${{ inputs.image-name }}
+      image-tag: ${{ needs.resolve-tag.outputs.tag }}
+      ssh-host: ${{ inputs.ssh-host }}
+      ssh-user: ${{ inputs.ssh-user }}
+      ssh-port: ${{ inputs.ssh-port }}
+      compose-file-local: ${{ inputs.compose-file-local }}
+      compose-file-remote: ${{ inputs.compose-file-remote }}
+      service-name: ${{ inputs.service-name }}
+      ssh-known-hosts: ${{ inputs.ssh-known-hosts }}
+    secrets:
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+      REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}

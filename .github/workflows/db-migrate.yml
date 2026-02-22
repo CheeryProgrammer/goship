@@ -1,0 +1,103 @@
+name: Reusable — Database Migration
+
+on:
+  workflow_call:
+    inputs:
+      migration-tool:
+        description: 'Migration tool to use: "golang-migrate" | "goose"'
+        type: string
+        default: 'golang-migrate'
+      migrations-dir:
+        description: 'Path to migrations directory relative to repo root'
+        type: string
+        default: 'migrations'
+      golang-migrate-version:
+        description: 'golang-migrate CLI version (when migration-tool is golang-migrate)'
+        type: string
+        default: 'v4.18.1'
+      goose-version:
+        description: 'Goose CLI version (when migration-tool is goose)'
+        type: string
+        default: 'v3.22.0'
+      db-driver:
+        description: 'Database driver (postgres | mysql | sqlite3 | sqlserver)'
+        type: string
+        default: 'postgres'
+      direction:
+        description: 'Migration direction: "up" | "down" | "version"'
+        type: string
+        default: 'up'
+      steps:
+        description: 'Number of migration steps (empty = all; used with direction down)'
+        type: string
+        default: ''
+      dry-run:
+        description: 'Print planned migrations without applying them'
+        type: boolean
+        default: false
+      environment:
+        description: 'Deployment environment label for log output'
+        type: string
+        default: 'production'
+    secrets:
+      DATABASE_URL:
+        description: 'Full database URL (e.g. postgres://user:pass@host:5432/db?sslmode=require)'
+        required: true
+
+jobs:
+  migrate:
+    name: DB Migration (${{ inputs.direction }}) — ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ─── golang-migrate ───────────────────────────────────────────────────
+      - name: Install golang-migrate
+        if: ${{ inputs.migration-tool == 'golang-migrate' }}
+        run: |
+          curl -sSL \
+            "https://github.com/golang-migrate/migrate/releases/download/${{ inputs.golang-migrate-version }}/migrate.linux-amd64.tar.gz" \
+            | tar xz -C /usr/local/bin migrate
+          migrate -version
+
+      - name: Run golang-migrate (dry-run)
+        if: ${{ inputs.migration-tool == 'golang-migrate' && inputs.dry-run }}
+        run: |
+          echo "DRY RUN — would execute:"
+          echo "  migrate -path ${{ inputs.migrations-dir }} -database \$DATABASE_URL ${{ inputs.direction }} ${{ inputs.steps }}"
+
+      - name: Run golang-migrate
+        if: ${{ inputs.migration-tool == 'golang-migrate' && !inputs.dry-run }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          migrate \
+            -path "${{ inputs.migrations-dir }}" \
+            -database "$DATABASE_URL" \
+            ${{ inputs.direction }} ${{ inputs.steps }}
+
+      # ─── Goose ────────────────────────────────────────────────────────────
+      - name: Install Goose
+        if: ${{ inputs.migration-tool == 'goose' }}
+        run: go install github.com/pressly/goose/v3/cmd/goose@${{ inputs.goose-version }}
+
+      - name: Run Goose (dry-run)
+        if: ${{ inputs.migration-tool == 'goose' && inputs.dry-run }}
+        env:
+          GOOSE_DBSTRING: ${{ secrets.DATABASE_URL }}
+        run: |
+          echo "DRY RUN — would execute:"
+          goose -dir "${{ inputs.migrations-dir }}" ${{ inputs.db-driver }} "$GOOSE_DBSTRING" status
+
+      - name: Run Goose
+        if: ${{ inputs.migration-tool == 'goose' && !inputs.dry-run }}
+        env:
+          GOOSE_DBSTRING: ${{ secrets.DATABASE_URL }}
+        run: |
+          goose \
+            -dir "${{ inputs.migrations-dir }}" \
+            ${{ inputs.db-driver }} \
+            "$GOOSE_DBSTRING" \
+            ${{ inputs.direction }} ${{ inputs.steps }}

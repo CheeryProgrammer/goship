@@ -1,0 +1,169 @@
+name: Reusable — CI Pipeline
+
+# Orchestrates: lint → build + test (parallel) → integration-test
+# Callers get a single workflow to drop into their repo for full CI coverage.
+
+on:
+  workflow_call:
+    inputs:
+      go-version:
+        description: 'Go version (e.g. "1.23")'
+        type: string
+        default: '1.23'
+      working-directory:
+        description: 'Working directory relative to repo root'
+        type: string
+        default: '.'
+      binary-name:
+        description: 'Output binary name'
+        type: string
+        default: 'app'
+      main-package:
+        description: 'Path to main package'
+        type: string
+        default: './cmd/...'
+
+      # sqlc
+      sqlc-enabled:
+        description: 'Run sqlc generate and verify generated files are up to date'
+        type: boolean
+        default: false
+      sqlc-version:
+        description: 'sqlc version (e.g. "v1.27.0")'
+        type: string
+        default: 'v1.27.0'
+
+      # Lint
+      golangci-lint-version:
+        description: 'golangci-lint version'
+        type: string
+        default: 'v1.62'
+      lint-timeout:
+        description: 'Lint timeout'
+        type: string
+        default: '5m'
+
+      # Test
+      test-flags:
+        description: 'Flags forwarded to go test (unit)'
+        type: string
+        default: '-race -count=1'
+      test-packages:
+        description: 'Package pattern for unit tests'
+        type: string
+        default: './...'
+      coverage-threshold:
+        description: 'Minimum coverage percentage (0 = disabled)'
+        type: number
+        default: 0
+      upload-coverage:
+        description: 'Upload coverage to Codecov'
+        type: boolean
+        default: false
+
+      # Integration tests
+      run-integration-tests:
+        description: 'Whether to run integration tests'
+        type: boolean
+        default: false
+      integration-test-packages:
+        description: 'Package pattern for integration tests'
+        type: string
+        default: './tests/integration/...'
+      integration-test-tags:
+        description: 'Build tags for integration tests'
+        type: string
+        default: 'integration'
+      postgres-enabled:
+        description: 'Spin up a PostgreSQL service for integration tests'
+        type: boolean
+        default: false
+      postgres-version:
+        description: 'PostgreSQL image tag (e.g. "16-alpine")'
+        type: string
+        default: '16-alpine'
+      redis-enabled:
+        description: 'Spin up a Redis service for integration tests'
+        type: boolean
+        default: false
+      redis-version:
+        description: 'Redis image tag (e.g. "7-alpine")'
+        type: string
+        default: '7-alpine'
+      integration-compose-file:
+        description: 'Docker Compose file for extra test services'
+        type: string
+        default: 'docker-compose.test.yml'
+
+    secrets:
+      CODECOV_TOKEN:
+        required: false
+      INTEGRATION_ENV:
+        required: false
+    outputs:
+      artifact-name:
+        description: 'Built binary artifact name'
+        value: ${{ jobs.build.outputs.artifact-name }}
+
+jobs:
+  sqlc:
+    name: sqlc Check
+    if: ${{ inputs.sqlc-enabled }}
+    uses: ./.github/workflows/sqlc-check.yml
+    with:
+      go-version: ${{ inputs.go-version }}
+      sqlc-version: ${{ inputs.sqlc-version }}
+      working-directory: ${{ inputs.working-directory }}
+
+  lint:
+    name: Lint
+    uses: ./.github/workflows/lint.yml
+    with:
+      go-version: ${{ inputs.go-version }}
+      working-directory: ${{ inputs.working-directory }}
+      golangci-lint-version: ${{ inputs.golangci-lint-version }}
+      timeout: ${{ inputs.lint-timeout }}
+
+  build:
+    name: Build
+    needs: [lint, sqlc]
+    if: always() && needs.lint.result == 'success' && (needs.sqlc.result == 'success' || needs.sqlc.result == 'skipped')
+    uses: ./.github/workflows/build.yml
+    with:
+      go-version: ${{ inputs.go-version }}
+      working-directory: ${{ inputs.working-directory }}
+      binary-name: ${{ inputs.binary-name }}
+      main-package: ${{ inputs.main-package }}
+
+  test:
+    name: Test
+    needs: [lint, sqlc]
+    if: always() && needs.lint.result == 'success' && (needs.sqlc.result == 'success' || needs.sqlc.result == 'skipped')
+    uses: ./.github/workflows/test.yml
+    with:
+      go-version: ${{ inputs.go-version }}
+      working-directory: ${{ inputs.working-directory }}
+      test-flags: ${{ inputs.test-flags }}
+      test-packages: ${{ inputs.test-packages }}
+      coverage-threshold: ${{ inputs.coverage-threshold }}
+      upload-coverage: ${{ inputs.upload-coverage }}
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  integration-test:
+    name: Integration Test
+    if: ${{ inputs.run-integration-tests }}
+    needs: [build, test]
+    uses: ./.github/workflows/integration-test.yml
+    with:
+      go-version: ${{ inputs.go-version }}
+      working-directory: ${{ inputs.working-directory }}
+      test-packages: ${{ inputs.integration-test-packages }}
+      test-tags: ${{ inputs.integration-test-tags }}
+      compose-file: ${{ inputs.integration-compose-file }}
+      postgres-enabled: ${{ inputs.postgres-enabled }}
+      postgres-version: ${{ inputs.postgres-version }}
+      redis-enabled: ${{ inputs.redis-enabled }}
+      redis-version: ${{ inputs.redis-version }}
+    secrets:
+      INTEGRATION_ENV: ${{ secrets.INTEGRATION_ENV }}

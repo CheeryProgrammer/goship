@@ -1,0 +1,135 @@
+name: Reusable — Integration Tests
+
+on:
+  workflow_call:
+    inputs:
+      go-version:
+        description: 'Go version to use (e.g. "1.23")'
+        type: string
+        default: '1.23'
+      working-directory:
+        description: 'Working directory relative to the repo root'
+        type: string
+        default: '.'
+      test-flags:
+        description: 'Extra flags forwarded to go test'
+        type: string
+        default: '-count=1 -timeout=120s'
+      test-packages:
+        description: 'Package pattern containing integration tests'
+        type: string
+        default: './tests/integration/...'
+      test-tags:
+        description: 'Build tags to enable integration tests (e.g. "integration")'
+        type: string
+        default: 'integration'
+      compose-file:
+        description: 'Docker Compose file for test services (relative to working-directory)'
+        type: string
+        default: 'docker-compose.test.yml'
+      compose-wait-seconds:
+        description: 'Seconds to wait for services to become healthy'
+        type: number
+        default: 30
+      postgres-enabled:
+        description: 'Start a PostgreSQL service container'
+        type: boolean
+        default: false
+      postgres-version:
+        description: 'PostgreSQL image tag'
+        type: string
+        default: '16-alpine'
+      redis-enabled:
+        description: 'Start a Redis service container'
+        type: boolean
+        default: false
+      redis-version:
+        description: 'Redis image tag'
+        type: string
+        default: '7-alpine'
+    secrets:
+      INTEGRATION_ENV:
+        description: 'Newline-separated KEY=VALUE pairs injected as env vars'
+        required: false
+
+env:
+  # Exposed to test process; callers can override via INTEGRATION_ENV secret
+  POSTGRES_HOST: localhost
+  POSTGRES_PORT: 5432
+  POSTGRES_USER: test
+  POSTGRES_PASSWORD: test
+  POSTGRES_DB: testdb
+  REDIS_HOST: localhost
+  REDIS_PORT: 6379
+
+jobs:
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: ${{ inputs.postgres-enabled && format('postgres:{0}', inputs.postgres-version) || '' }}
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: ${{ inputs.redis-enabled && format('redis:{0}', inputs.redis-version) || '' }}
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ inputs.go-version }}
+          cache: true
+
+      - name: Inject integration env secrets
+        if: ${{ secrets.INTEGRATION_ENV != '' }}
+        run: |
+          echo "${{ secrets.INTEGRATION_ENV }}" >> "$GITHUB_ENV"
+
+      - name: Start Docker Compose services
+        if: ${{ hashFiles(format('{0}/{1}', inputs.working-directory, inputs.compose-file)) != '' }}
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          docker compose -f ${{ inputs.compose-file }} up -d --wait
+          sleep ${{ inputs.compose-wait-seconds }}
+
+      - name: Run integration tests
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          go test ${{ inputs.test-flags }} \
+            -tags=${{ inputs.test-tags }} \
+            ${{ inputs.test-packages }}
+
+      - name: Dump service logs on failure
+        if: failure()
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          if [ -f "${{ inputs.compose-file }}" ]; then
+            docker compose -f ${{ inputs.compose-file }} logs
+          fi
+
+      - name: Tear down Docker Compose services
+        if: always() && hashFiles(format('{0}/{1}', inputs.working-directory, inputs.compose-file)) != ''
+        working-directory: ${{ inputs.working-directory }}
+        run: docker compose -f ${{ inputs.compose-file }} down -v

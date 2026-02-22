@@ -1,0 +1,175 @@
+name: Reusable — Deploy (SSH + Docker Compose)
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Target GitHub deployment environment (staging | production | …)'
+        type: string
+        required: true
+      image-name:
+        description: 'Docker image name without tag (e.g. "ghcr.io/org/app")'
+        type: string
+        required: true
+      image-tag:
+        description: 'Docker image tag to deploy'
+        type: string
+        required: true
+      ssh-host:
+        description: 'Target SSH host'
+        type: string
+        required: true
+      ssh-user:
+        description: 'SSH user on the remote host'
+        type: string
+        default: 'deploy'
+      ssh-port:
+        description: 'SSH port'
+        type: string
+        default: '22'
+      compose-file-local:
+        description: 'Path to docker-compose.yml in the repository'
+        type: string
+        default: 'docker-compose.yml'
+      compose-file-remote:
+        description: 'Destination path on the remote host'
+        type: string
+        default: '~/app/docker-compose.yml'
+      service-name:
+        description: 'Docker Compose service name to update (empty = all services)'
+        type: string
+        default: ''
+      ssh-known-hosts:
+        description: 'Contents of known_hosts for the target server (recommended over StrictHostKeyChecking=no)'
+        type: string
+        default: ''
+    secrets:
+      SSH_PRIVATE_KEY:
+        description: 'SSH private key for the deploy user'
+        required: true
+      REGISTRY_USERNAME:
+        description: 'Registry username (so the server can pull the image)'
+        required: false
+      REGISTRY_PASSWORD:
+        description: 'Registry password / token'
+        required: false
+
+jobs:
+  deploy:
+    name: Deploy → ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
+    concurrency:
+      group: deploy-${{ inputs.environment }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add server to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          if [ -n "${{ inputs.ssh-known-hosts }}" ]; then
+            echo "${{ inputs.ssh-known-hosts }}" >> ~/.ssh/known_hosts
+          else
+            # Fallback: scan and trust on first connect (less secure)
+            ssh-keyscan -p ${{ inputs.ssh-port }} -H "${{ inputs.ssh-host }}" >> ~/.ssh/known_hosts
+          fi
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Upload compose file to server
+        run: |
+          # Ensure the destination directory exists
+          ssh -p ${{ inputs.ssh-port }} ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} \
+            "mkdir -p $(dirname ${{ inputs.compose-file-remote }})"
+
+          scp -P ${{ inputs.ssh-port }} \
+            ${{ inputs.compose-file-local }} \
+            ${{ inputs.ssh-user }}@${{ inputs.ssh-host }}:${{ inputs.compose-file-remote }}
+
+      - name: Pull new image on server
+        env:
+          IMAGE: ${{ inputs.image-name }}:${{ inputs.image-tag }}
+          REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+        run: |
+          ssh -p ${{ inputs.ssh-port }} ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} bash <<'ENDSSH'
+            set -euo pipefail
+
+            # Log in to registry if credentials are provided
+            if [ -n "${REGISTRY_USERNAME:-}" ] && [ -n "${REGISTRY_PASSWORD:-}" ]; then
+              REGISTRY=$(echo "${IMAGE}" | cut -d'/' -f1)
+              echo "${REGISTRY_PASSWORD}" | docker login "${REGISTRY}" -u "${REGISTRY_USERNAME}" --password-stdin
+            fi
+
+            echo "Pulling ${IMAGE} …"
+            docker pull "${IMAGE}"
+          ENDSSH
+
+      - name: Update and restart service
+        env:
+          IMAGE: ${{ inputs.image-name }}:${{ inputs.image-tag }}
+        run: |
+          ssh -p ${{ inputs.ssh-port }} ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} bash <<'ENDSSH'
+            set -euo pipefail
+            COMPOSE_FILE="${{ inputs.compose-file-remote }}"
+            SERVICE="${{ inputs.service-name }}"
+
+            # Export IMAGE so compose can reference it via $IMAGE in the compose file
+            export IMAGE="${IMAGE}"
+
+            if [ -n "${SERVICE}" ]; then
+              echo "Updating service '${SERVICE}' …"
+              docker compose -f "${COMPOSE_FILE}" up -d --no-deps --pull never "${SERVICE}"
+            else
+              echo "Restarting all services …"
+              docker compose -f "${COMPOSE_FILE}" up -d --pull never
+            fi
+
+            # Remove dangling images left by the update
+            docker image prune -f
+          ENDSSH
+
+      - name: Verify service is healthy
+        run: |
+          ssh -p ${{ inputs.ssh-port }} ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} bash <<'ENDSSH'
+            set -euo pipefail
+            COMPOSE_FILE="${{ inputs.compose-file-remote }}"
+            SERVICE="${{ inputs.service-name }}"
+
+            TARGET="${SERVICE:-}"
+            echo "Waiting for containers to become healthy …"
+            sleep 5
+
+            # Check that no configured containers are in a non-running state
+            UNHEALTHY=$(docker compose -f "${COMPOSE_FILE}" ps --format json ${TARGET} \
+              | grep -v '"State":"running"' || true)
+
+            if [ -n "${UNHEALTHY}" ]; then
+              echo "::error::One or more containers are not running:"
+              docker compose -f "${COMPOSE_FILE}" ps ${TARGET}
+              docker compose -f "${COMPOSE_FILE}" logs --tail=50 ${TARGET}
+              exit 1
+            fi
+
+            echo "All containers are running."
+            docker compose -f "${COMPOSE_FILE}" ps ${TARGET}
+          ENDSSH
+
+      - name: Deployment summary
+        run: |
+          echo "## Deployment Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Environment | \`${{ inputs.environment }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Image | \`${{ inputs.image-name }}:${{ inputs.image-tag }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Host | \`${{ inputs.ssh-host }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Compose file | \`${{ inputs.compose-file-remote }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Triggered by | @${{ github.actor }} |" >> "$GITHUB_STEP_SUMMARY"
