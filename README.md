@@ -115,7 +115,16 @@ jobs:
 | `redis-enabled` | `false` | Spin up a Redis service container |
 | `redis-version` | `7-alpine` | Redis image tag |
 
-**Secrets:** `INTEGRATION_ENV` — newline-separated `KEY=VALUE` pairs injected into the test process environment.
+**Secrets:** `INTEGRATION_ENV` — newline-separated `KEY=VALUE` pairs injected as environment variables into the test process.
+
+Use this for secrets that your integration tests need but that can't be passed as typed inputs — for example, API keys for external services or feature flags:
+
+```
+STRIPE_API_KEY=sk_test_abc123
+SOME_EXTERNAL_API_URL=https://api.example.com
+```
+
+Standard service connection details (postgres host/port/credentials, redis host/port) are already set by the workflow itself and do not need to go through `INTEGRATION_ENV`. If you have no external service secrets, leave this secret unset — the workflow handles the empty case safely.
 
 ---
 
@@ -273,7 +282,7 @@ and `deploy.yml` under a single `uses:` line. For advanced docker options
 | Name | Type | Workflows | Description |
 |------|------|-----------|-------------|
 | `CODECOV_TOKEN` | Secret | test | Codecov upload token |
-| `INTEGRATION_ENV` | Secret | integration-test | Newline-separated env vars for tests |
+| `INTEGRATION_ENV` | Secret | integration-test | Newline-separated `KEY=VALUE` pairs for secrets your tests need (API keys, etc.) — omit if not required |
 | `REGISTRY_USERNAME` | Secret | docker-build, docker-push, deploy, cd-pipeline | Registry username |
 | `REGISTRY_PASSWORD` | Secret | docker-build, docker-push, deploy, cd-pipeline | Registry password / PAT |
 | `SSH_PRIVATE_KEY` | Secret | deploy, cd-pipeline | Private key for the deploy user |
