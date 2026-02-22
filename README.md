@@ -5,8 +5,9 @@ into any repository to get lint, build, test, integration-test, Docker build,
 Docker push, database migration, and SSH deployment with Docker Compose —
 batteries included.
 
-This repository is also a **GitHub template**, so you can generate a new Go
-project scaffold from it directly.
+> **Starting a new project?** Use [go-template](https://github.com/YOUR_ORG/go-template)
+> — a GitHub template with caller workflows, Dockerfile, Makefile, and lint
+> config already wired up to reference goship.
 
 ---
 
@@ -26,18 +27,7 @@ project scaffold from it directly.
   ci-pipeline.yml        # Reusable — CI orchestration (lint→build+test→integration)
   cd-pipeline.yml        # Reusable — CD orchestration (docker→migrate→deploy)
 
-examples/
-  workflows/
-    pr-checks.yml        # Caller: PR gate (CI only)
-    main-push.yml        # Caller: push to main → staging deploy
-    release.yml          # Caller: semver tag → production deploy
-    nightly.yml          # Caller: nightly full-suite + Slack alert
-  docker/
-    Dockerfile           # Multi-stage scratch image template
-    docker-compose.test.yml  # Service containers for integration tests
-  Makefile               # Go project Makefile template (copy to your repo)
-
-.golangci.yml            # Default lint ruleset (copy to your repo)
+.golangci.yml            # Default lint ruleset
 Makefile                 # This repo's helpers (validate/fmt workflows)
 ```
 
@@ -45,18 +35,7 @@ Makefile                 # This repo's helpers (validate/fmt workflows)
 
 ## Quick start
 
-### 1 — Use this repo as a GitHub template
-
-Click **"Use this template"** on GitHub to generate a new repository with all
-example workflows already in place. Then:
-
-1. Replace `YOUR_ORG/goship` in every `uses:` line with your actual org/repo name.
-2. Populate the required secrets in your repository / environment settings.
-3. Push — CI runs automatically.
-
-### 2 — Reference workflows from an existing repository
-
-Add workflow files to `.github/workflows/` in your repo:
+Add a workflow file to `.github/workflows/` in your repo:
 
 ```yaml
 # .github/workflows/pr-checks.yml
@@ -306,35 +285,10 @@ and `deploy.yml` under a single `uses:` line. For advanced docker options
 
 ## Local development
 
-Commands for maintaining **this repository**:
-
 ```bash
 make validate-workflows   # validate workflow YAML with actionlint
 make lint-config          # verify .golangci.yml is valid
 make fmt-workflows        # format all YAML files with yamlfmt
-```
-
-For Go **project commands** (build, test, lint, docker, migrate) — copy `examples/Makefile` to your repo root and adjust the variables at the top:
-
-```bash
-BINARY_NAME    ?= app
-MAIN_PACKAGE   ?= ./cmd/server
-DOCKER_IMAGE   ?= ghcr.io/your-org/app
-DB_URL         ?= postgres://...
-```
-
-Then:
-
-```bash
-make help              # list all commands
-make check             # fmt + vet + lint before committing
-make test              # unit tests with race detector
-make test-coverage     # tests + HTML coverage report
-make test-integration  # integration tests (needs running services)
-make build             # build binary → ./bin/app
-make docker-build      # build Docker image
-make migrate-up        # apply pending migrations
-make migrate-create NAME=add_users_table
 ```
 
 ---
