@@ -1,5 +1,7 @@
 # goship
 
+[![PR Checks](https://github.com/CheeryProgrammer/goship/actions/workflows/pr-checks.yml/badge.svg)](https://github.com/CheeryProgrammer/goship/actions/workflows/pr-checks.yml)
+
 Reusable GitHub Actions workflows for Go projects. Drop a single `uses:` line
 into any repository to get lint, build, test, integration-test, Docker build,
 Docker push, database migration, and SSH deployment with Docker Compose —
