@@ -6,7 +6,7 @@ on:
       go-version:
         description: 'Go version to use (e.g. "1.23")'
         type: string
-        default: '1.23'
+        default: '1.26'
       working-directory:
         description: 'Working directory relative to the repo root'
         type: string
