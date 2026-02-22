@@ -1,4 +1,4 @@
-# ── go-pipelines repo helpers ──────────────────────────────────────────────
+# ── goship repo helpers ─────────────────────────────────────────────────────
 # Commands for maintaining this repository (validating and formatting workflows).
 # For Go project commands see examples/Makefile.
 

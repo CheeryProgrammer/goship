@@ -12,7 +12,7 @@ on:
 jobs:
   ci:
     name: Nightly CI
-    uses: YOUR_ORG/go-pipelines/.github/workflows/ci-pipeline.yml@main
+    uses: YOUR_ORG/goship/.github/workflows/ci-pipeline.yml@main
     with:
       go-version: '1.23'
       binary-name: myapp

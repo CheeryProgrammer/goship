@@ -1,6 +1,6 @@
 # ────────────────────────────────────────────────────────────────────────────
 # Copy this file to YOUR_REPO/.github/workflows/pr-checks.yml
-# Replace "YOUR_ORG/go-pipelines" with the actual org/repo name.
+# Replace "YOUR_ORG/goship" with your actual org/repo name.
 # ────────────────────────────────────────────────────────────────────────────
 name: PR Checks
 
@@ -17,7 +17,7 @@ concurrency:
 jobs:
   ci:
     name: CI
-    uses: YOUR_ORG/go-pipelines/.github/workflows/ci-pipeline.yml@main
+    uses: YOUR_ORG/goship/.github/workflows/ci-pipeline.yml@main
     with:
       go-version: '1.23'
       binary-name: myapp

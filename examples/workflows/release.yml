@@ -14,7 +14,7 @@ on:
 jobs:
   ci:
     name: CI
-    uses: YOUR_ORG/go-pipelines/.github/workflows/ci-pipeline.yml@main
+    uses: YOUR_ORG/goship/.github/workflows/ci-pipeline.yml@main
     with:
       go-version: '1.23'
       binary-name: myapp
@@ -45,7 +45,7 @@ jobs:
   deploy-production:
     name: Deploy → Production
     needs: [ci, release]
-    uses: YOUR_ORG/go-pipelines/.github/workflows/cd-pipeline.yml@main
+    uses: YOUR_ORG/goship/.github/workflows/cd-pipeline.yml@main
     with:
       environment: production
       image-name: ghcr.io/${{ github.repository }}

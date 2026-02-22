@@ -1,4 +1,4 @@
-# go-pipelines
+# goship
 
 Reusable GitHub Actions workflows for Go projects. Drop a single `uses:` line
 into any repository to get lint, build, test, integration-test, Docker build,
@@ -50,7 +50,7 @@ Makefile                 # This repo's helpers (validate/fmt workflows)
 Click **"Use this template"** on GitHub to generate a new repository with all
 example workflows already in place. Then:
 
-1. Replace `YOUR_ORG/go-pipelines` in every `uses:` line with your actual org/repo name.
+1. Replace `YOUR_ORG/goship` in every `uses:` line with your actual org/repo name.
 2. Populate the required secrets in your repository / environment settings.
 3. Push — CI runs automatically.
 
@@ -67,7 +67,7 @@ on:
 
 jobs:
   ci:
-    uses: YOUR_ORG/go-pipelines/.github/workflows/ci-pipeline.yml@main
+    uses: YOUR_ORG/goship/.github/workflows/ci-pipeline.yml@main
     with:
       go-version: '1.23'
       binary-name: myapp
@@ -344,7 +344,7 @@ make migrate-create NAME=add_users_table
 Pin callers to a specific tag or SHA for production stability:
 
 ```yaml
-uses: YOUR_ORG/go-pipelines/.github/workflows/ci-pipeline.yml@v1.0.0
+uses: YOUR_ORG/goship/.github/workflows/ci-pipeline.yml@v1.0.0
 ```
 
 Use `@main` only for development/staging workflows where rolling updates are acceptable.
