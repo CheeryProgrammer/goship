@@ -40,6 +40,13 @@ jobs:
           go-version: ${{ inputs.go-version }}
           cache: true
 
+      - name: Verify golangci-lint config
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: ${{ inputs.golangci-lint-version }}
+          working-directory: ${{ inputs.working-directory }}
+          args: config verify
+
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
