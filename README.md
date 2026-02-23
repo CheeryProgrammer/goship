@@ -47,7 +47,7 @@ on:
 
 jobs:
   ci:
-    uses: YOUR_ORG/goship/.github/workflows/ci-pipeline.yml@main
+    uses: CheeryProgrammer/goship/.github/workflows/ci-pipeline.yml@main
     with:
       go-version: '1.23'
       binary-name: myapp
@@ -307,7 +307,7 @@ make fmt-workflows        # format all YAML files with yamlfmt
 Pin callers to a specific tag or SHA for production stability:
 
 ```yaml
-uses: YOUR_ORG/goship/.github/workflows/ci-pipeline.yml@v1.0.0
+uses: CheeryProgrammer/goship/.github/workflows/ci-pipeline.yml@v1.0.0
 ```
 
 Use `@main` only for development/staging workflows where rolling updates are acceptable.
