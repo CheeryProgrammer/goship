@@ -37,7 +37,7 @@ on:
       golangci-lint-version:
         description: 'golangci-lint version'
         type: string
-        default: 'v1.62'
+        default: 'v2.10.1'
       lint-timeout:
         description: 'Lint timeout'
         type: string
