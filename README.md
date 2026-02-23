@@ -29,7 +29,6 @@ batteries included.
   ci-pipeline.yml        # Reusable — CI orchestration (lint→build+test→integration)
   cd-pipeline.yml        # Reusable — CD orchestration (docker→migrate→deploy)
 
-.golangci.yml            # Default lint ruleset
 Makefile                 # This repo's helpers (validate/fmt workflows)
 ```
 
@@ -298,7 +297,6 @@ and `deploy.yml` under a single `uses:` line. For advanced docker options
 
 ```bash
 make validate-workflows   # validate workflow YAML with actionlint
-make lint-config          # verify .golangci.yml is valid
 make fmt-workflows        # format all YAML files with yamlfmt
 ```
 
