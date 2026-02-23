@@ -109,7 +109,7 @@ jobs:
   sqlc:
     name: sqlc Check
     if: ${{ inputs.sqlc-enabled }}
-    uses: ./.github/workflows/sqlc-check.yml
+    uses: CheeryProgrammer/goship/.github/workflows/sqlc-check.yml@main
     with:
       go-version: ${{ inputs.go-version }}
       sqlc-version: ${{ inputs.sqlc-version }}
@@ -117,7 +117,7 @@ jobs:
 
   lint:
     name: Lint
-    uses: ./.github/workflows/lint.yml
+    uses: CheeryProgrammer/goship/.github/workflows/lint.yml@main
     with:
       go-version: ${{ inputs.go-version }}
       working-directory: ${{ inputs.working-directory }}
@@ -128,7 +128,7 @@ jobs:
     name: Build
     needs: [lint, sqlc]
     if: always() && needs.lint.result == 'success' && (needs.sqlc.result == 'success' || needs.sqlc.result == 'skipped')
-    uses: ./.github/workflows/build.yml
+    uses: CheeryProgrammer/goship/.github/workflows/build.yml@main
     with:
       go-version: ${{ inputs.go-version }}
       working-directory: ${{ inputs.working-directory }}
@@ -139,7 +139,7 @@ jobs:
     name: Test
     needs: [lint, sqlc]
     if: always() && needs.lint.result == 'success' && (needs.sqlc.result == 'success' || needs.sqlc.result == 'skipped')
-    uses: ./.github/workflows/test.yml
+    uses: CheeryProgrammer/goship/.github/workflows/test.yml@main
     with:
       go-version: ${{ inputs.go-version }}
       working-directory: ${{ inputs.working-directory }}
@@ -154,7 +154,7 @@ jobs:
     name: Integration Test
     if: ${{ inputs.run-integration-tests }}
     needs: [build, test]
-    uses: ./.github/workflows/integration-test.yml
+    uses: CheeryProgrammer/goship/.github/workflows/integration-test.yml@main
     with:
       go-version: ${{ inputs.go-version }}
       working-directory: ${{ inputs.working-directory }}

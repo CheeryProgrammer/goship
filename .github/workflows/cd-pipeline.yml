@@ -129,7 +129,7 @@ jobs:
   docker:
     name: Docker Build & Push
     needs: resolve-tag
-    uses: ./.github/workflows/docker-build.yml
+    uses: CheeryProgrammer/goship/.github/workflows/docker-build.yml@main
     with:
       image-name: ${{ inputs.image-name }}
       dockerfile: ${{ inputs.dockerfile }}
@@ -145,7 +145,7 @@ jobs:
     name: DB Migration
     if: ${{ inputs.run-migrations }}
     needs: docker
-    uses: ./.github/workflows/db-migrate.yml
+    uses: CheeryProgrammer/goship/.github/workflows/db-migrate.yml@main
     with:
       migration-tool: ${{ inputs.migration-tool }}
       migrations-dir: ${{ inputs.migrations-dir }}
@@ -163,7 +163,7 @@ jobs:
       - docker
       - migrate
     if: always() && needs.docker.result == 'success' && (needs.migrate.result == 'success' || needs.migrate.result == 'skipped')
-    uses: ./.github/workflows/deploy.yml
+    uses: CheeryProgrammer/goship/.github/workflows/deploy.yml@main
     with:
       environment: ${{ inputs.environment }}
       image-name: ${{ inputs.image-name }}
