@@ -49,7 +49,7 @@ jobs:
   ci:
     uses: CheeryProgrammer/goship/.github/workflows/ci-pipeline.yml@main
     with:
-      go-version: '1.23'
+      go-version: '1.26'
       binary-name: myapp
       main-package: './cmd/server'
       run-integration-tests: true
@@ -67,9 +67,11 @@ jobs:
 
 ### `lint.yml` — golangci-lint
 
+Runs `golangci-lint config verify` before linting to catch broken config files early.
+
 | Input | Default | Description |
 |-------|---------|-------------|
-| `go-version` | `1.23` | Go toolchain version |
+| `go-version` | `1.26` | Go toolchain version |
 | `golangci-lint-version` | `v2.10.1` | Linter version |
 | `working-directory` | `.` | Module root |
 | `timeout` | `5m` | Lint timeout |
@@ -134,6 +136,7 @@ Standard service connection details (postgres host/port/credentials, redis host/
 | Input | Default | Description |
 |-------|---------|-------------|
 | `image-name` | _(required)_ | Image name without tag |
+| `registry` | `ghcr.io` | Registry host for `docker login` |
 | `dockerfile` | `Dockerfile` | Dockerfile path |
 | `context` | `.` | Docker build context path |
 | `platforms` | `linux/amd64` | Comma-separated target platforms |
@@ -275,6 +278,15 @@ Chains: **docker-build+push → db-migrate → deploy**
 Exposes the most commonly used inputs from `docker-build.yml`, `db-migrate.yml`,
 and `deploy.yml` under a single `uses:` line. For advanced docker options
 (e.g. `cache-from`, `cache-to`) call `docker-build.yml` directly.
+
+| Input | Default | Description |
+|-------|---------|-------------|
+| `registry` | `ghcr.io` | Registry host for `docker login` |
+| `image-name` | _(required)_ | Image name without tag |
+| `environment` | _(required)_ | GitHub deployment environment |
+| `ssh-host` | _(required)_ | Target server hostname or IP |
+
+See source for the full input list.
 
 ---
 
