@@ -40,13 +40,6 @@ jobs:
           go-version: ${{ inputs.go-version }}
           cache: true
 
-      - name: Verify golangci-lint config
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh \
-            | sh -s -- -b "$HOME/.local/bin" ${{ inputs.golangci-lint-version }}
-          golangci-lint config verify
-        working-directory: ${{ inputs.working-directory }}
-
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
