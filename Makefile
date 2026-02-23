@@ -4,8 +4,8 @@
 
 .PHONY: help validate-workflows check-actions lint-config fmt-workflows
 
-GOLANGCI_LINT_VERSION ?= v1.62.0
-ACTIONLINT_VERSION    ?= v1.7.4
+GOLANGCI_LINT_VERSION ?= v2.10.1
+ACTIONLINT_VERSION    ?= v1.7.11
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -27,4 +27,4 @@ lint-config: ## Validate the bundled .golangci.yml
 
 fmt-workflows: ## Format all YAML files with yamlfmt
 	@command -v yamlfmt >/dev/null 2>&1 || go install github.com/google/yamlfmt/cmd/yamlfmt@latest
-	yamlfmt .github/workflows/ examples/
+	yamlfmt .github/workflows/

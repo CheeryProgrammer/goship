@@ -71,7 +71,7 @@ jobs:
 | Input | Default | Description |
 |-------|---------|-------------|
 | `go-version` | `1.23` | Go toolchain version |
-| `golangci-lint-version` | `v1.62` | Linter version |
+| `golangci-lint-version` | `v2.10.1` | Linter version |
 | `working-directory` | `.` | Module root |
 | `timeout` | `5m` | Lint timeout |
 | `extra-args` | `` | Extra flags forwarded to golangci-lint |

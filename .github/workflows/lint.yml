@@ -8,9 +8,9 @@ on:
         type: string
         default: '1.26'
       golangci-lint-version:
-        description: 'golangci-lint version (e.g. "v1.62")'
+        description: 'golangci-lint version (e.g. "v2.10.1")'
         type: string
-        default: 'v1.62'
+        default: 'v2.10.1'
       working-directory:
         description: 'Working directory relative to the repo root'
         type: string
@@ -41,7 +41,7 @@ jobs:
           cache: true
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v9
         with:
           version: ${{ inputs.golangci-lint-version }}
           working-directory: ${{ inputs.working-directory }}
