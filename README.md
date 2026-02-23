@@ -7,7 +7,7 @@ into any repository to get lint, build, test, integration-test, Docker build,
 Docker push, database migration, and SSH deployment with Docker Compose —
 batteries included.
 
-> **Starting a new project?** Use [go-template](https://github.com/YOUR_ORG/go-template)
+> **Starting a new project?** Use [go-template](https://github.com/CheeryProgrammer/go-template)
 > — a GitHub template with caller workflows, Dockerfile, Makefile, and lint
 > config already wired up to reference goship.
 
