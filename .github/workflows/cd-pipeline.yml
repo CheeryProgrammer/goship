@@ -19,6 +19,10 @@ on:
         default: ''
 
       # Docker
+      registry:
+        description: 'Registry host for docker login (e.g. "ghcr.io", "docker.io")'
+        type: string
+        default: 'ghcr.io'
       dockerfile:
         description: 'Path to Dockerfile'
         type: string
@@ -132,6 +136,7 @@ jobs:
     uses: CheeryProgrammer/goship/.github/workflows/docker-build.yml@main
     with:
       image-name: ${{ inputs.image-name }}
+      registry: ${{ inputs.registry }}
       dockerfile: ${{ inputs.dockerfile }}
       context: ${{ inputs.context }}
       platforms: ${{ inputs.platforms }}
