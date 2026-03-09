@@ -125,6 +125,8 @@ jobs:
         id: tag
         run: |
           TAG="${{ inputs.image-tag }}"
+          # Strip leading 'v' from semver tags to match docker/metadata-action output (v1.2.3 → 1.2.3)
+          if [[ "$TAG" =~ ^v[0-9] ]]; then TAG="${TAG#v}"; fi
           if [ -z "$TAG" ]; then
             TAG="sha-$(echo '${{ github.sha }}' | cut -c1-7)"
           fi
