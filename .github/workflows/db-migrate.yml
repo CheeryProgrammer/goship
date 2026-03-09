@@ -101,7 +101,7 @@ jobs:
             ${{ inputs.ssh-user }}@${{ inputs.ssh-host }}
 
           # Wait for tunnel to be ready
-          for i in $(seq 1 10); do
+          for _ in $(seq 1 10); do
             nc -z localhost ${{ inputs.db-port }} && break
             sleep 1
           done
