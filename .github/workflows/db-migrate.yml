@@ -39,10 +39,33 @@ on:
         description: 'Deployment environment label for log output'
         type: string
         default: 'production'
+      ssh-host:
+        description: 'SSH host to tunnel through. When set, opens an SSH tunnel so the runner can reach a localhost-bound database on the remote server.'
+        type: string
+        default: ''
+      ssh-user:
+        description: 'SSH username (required when ssh-host is set)'
+        type: string
+        default: ''
+      ssh-port:
+        description: 'SSH port'
+        type: string
+        default: '22'
+      ssh-known-hosts:
+        description: 'Known hosts entry for the SSH host (output of ssh-keyscan). If omitted, the host is scanned automatically.'
+        type: string
+        default: ''
+      db-port:
+        description: 'Database port to forward through the SSH tunnel'
+        type: string
+        default: '5432'
     secrets:
       DATABASE_URL:
-        description: 'Full database URL (e.g. postgres://user:pass@host:5432/db?sslmode=require)'
+        description: 'Full database URL (e.g. postgres://user:pass@localhost:5432/db?sslmode=disable)'
         required: true
+      SSH_PRIVATE_KEY:
+        description: 'SSH private key for tunneling (required when ssh-host is set)'
+        required: false
 
 jobs:
   migrate:
@@ -52,6 +75,36 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # ─── SSH tunnel (optional) ────────────────────────────────────────────
+      - name: Open SSH tunnel
+        if: ${{ inputs.ssh-host != '' }}
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ inputs.ssh-known-hosts }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/tunnel_key
+          chmod 600 ~/.ssh/tunnel_key
+
+          if [ -n "$SSH_KNOWN_HOSTS" ]; then
+            echo "$SSH_KNOWN_HOSTS" >> ~/.ssh/known_hosts
+          else
+            ssh-keyscan -p ${{ inputs.ssh-port }} -H ${{ inputs.ssh-host }} >> ~/.ssh/known_hosts
+          fi
+
+          ssh -f -N \
+            -i ~/.ssh/tunnel_key \
+            -L ${{ inputs.db-port }}:127.0.0.1:${{ inputs.db-port }} \
+            -p ${{ inputs.ssh-port }} \
+            ${{ inputs.ssh-user }}@${{ inputs.ssh-host }}
+
+          # Wait for tunnel to be ready
+          for _ in $(seq 1 10); do
+            nc -z localhost ${{ inputs.db-port }} && break
+            sleep 1
+          done
 
       # ─── golang-migrate ───────────────────────────────────────────────────
       - name: Install golang-migrate

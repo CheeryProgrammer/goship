@@ -158,8 +158,13 @@ jobs:
       direction: up
       dry-run: ${{ inputs.migration-dry-run }}
       environment: ${{ inputs.environment }}
+      ssh-host: ${{ inputs.ssh-host }}
+      ssh-user: ${{ inputs.ssh-user }}
+      ssh-port: ${{ inputs.ssh-port }}
+      ssh-known-hosts: ${{ inputs.ssh-known-hosts }}
     secrets:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
   deploy:
     name: Deploy
