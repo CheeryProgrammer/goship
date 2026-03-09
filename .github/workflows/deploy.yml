@@ -101,7 +101,9 @@ jobs:
           REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
           REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
         run: |
-          ssh -p ${{ inputs.ssh-port }} ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} bash <<'ENDSSH'
+          ssh -p ${{ inputs.ssh-port }} ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} \
+            IMAGE="$IMAGE" REGISTRY_USERNAME="$REGISTRY_USERNAME" REGISTRY_PASSWORD="$REGISTRY_PASSWORD" \
+            bash <<'ENDSSH'
             set -euo pipefail
 
             # Log in to registry if credentials are provided
@@ -118,7 +120,9 @@ jobs:
         env:
           IMAGE: ${{ inputs.image-name }}:${{ inputs.image-tag }}
         run: |
-          ssh -p ${{ inputs.ssh-port }} ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} bash <<'ENDSSH'
+          ssh -p ${{ inputs.ssh-port }} ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} \
+            IMAGE="$IMAGE" \
+            bash <<'ENDSSH'
             set -euo pipefail
             COMPOSE_FILE="${{ inputs.compose-file-remote }}"
             SERVICE="${{ inputs.service-name }}"
