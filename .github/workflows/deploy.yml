@@ -125,6 +125,8 @@ jobs:
             bash <<'ENDSSH'
             set -euo pipefail
             COMPOSE_FILE="${{ inputs.compose-file-remote }}"
+            # ~ is not expanded inside double quotes; replace it explicitly so docker compose gets an absolute path
+            COMPOSE_FILE="${COMPOSE_FILE/#\~/$HOME}"
             SERVICE="${{ inputs.service-name }}"
 
             # Export IMAGE so compose can reference it via $IMAGE in the compose file
@@ -147,6 +149,8 @@ jobs:
           ssh -p ${{ inputs.ssh-port }} ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} bash <<'ENDSSH'
             set -euo pipefail
             COMPOSE_FILE="${{ inputs.compose-file-remote }}"
+            # ~ is not expanded inside double quotes; replace it explicitly so docker compose gets an absolute path
+            COMPOSE_FILE="${COMPOSE_FILE/#\~/$HOME}"
             SERVICE="${{ inputs.service-name }}"
 
             TARGET="${SERVICE:-}"
