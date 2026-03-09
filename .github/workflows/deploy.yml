@@ -86,9 +86,10 @@ jobs:
 
       - name: Upload compose file to server
         run: |
-          # Ensure the destination directory exists
+          # Ensure the destination directory exists.
+          # Single quotes prevent the runner from expanding ~ — the remote shell does it instead.
           ssh -p ${{ inputs.ssh-port }} ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} \
-            "mkdir -p $(dirname ${{ inputs.compose-file-remote }})"
+            'mkdir -p $(dirname ${{ inputs.compose-file-remote }})'
 
           scp -P ${{ inputs.ssh-port }} \
             ${{ inputs.compose-file-local }} \
