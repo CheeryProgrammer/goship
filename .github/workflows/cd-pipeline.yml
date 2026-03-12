@@ -39,6 +39,14 @@ on:
         description: 'Newline-separated docker build-args'
         type: string
         default: ''
+      cache-from:
+        description: 'Docker cache source (e.g. "type=gha"). Leave empty to disable.'
+        type: string
+        default: 'type=gha'
+      cache-to:
+        description: 'Docker cache destination (e.g. "type=gha,mode=max"). Leave empty to disable.'
+        type: string
+        default: 'type=gha,mode=max'
 
       # Migration
       run-migrations:
@@ -143,6 +151,8 @@ jobs:
       context: ${{ inputs.context }}
       platforms: ${{ inputs.platforms }}
       build-args: ${{ inputs.build-args }}
+      cache-from: ${{ inputs.cache-from }}
+      cache-to: ${{ inputs.cache-to }}
       push: true
     secrets:
       REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
