@@ -43,6 +43,10 @@ on:
         description: 'Name of a previously built binary artifact to download before build'
         type: string
         default: ''
+      runner:
+        description: 'GitHub Actions runner label'
+        type: string
+        default: 'ubuntu-latest'
     secrets:
       REGISTRY_USERNAME:
         description: 'Registry login username (required when push is true)'
@@ -61,7 +65,7 @@ on:
 jobs:
   docker-build:
     name: Docker Build
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner }}
     outputs:
       image-tag: ${{ steps.meta.outputs.tags }}
       image-digest: ${{ steps.build.outputs.digest }}

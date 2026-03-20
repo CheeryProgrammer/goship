@@ -43,6 +43,10 @@ on:
         description: 'Retention days for the uploaded artifact'
         type: number
         default: 7
+      runner:
+        description: 'GitHub Actions runner label'
+        type: string
+        default: 'ubuntu-latest'
     outputs:
       artifact-name:
         description: 'Name of the uploaded artifact (empty when upload-artifact is false)'
@@ -51,7 +55,7 @@ on:
 jobs:
   build:
     name: Build (${{ inputs.os }}/${{ inputs.arch }})
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner }}
     outputs:
       artifact-name: ${{ steps.meta.outputs.artifact-name }}
     steps:

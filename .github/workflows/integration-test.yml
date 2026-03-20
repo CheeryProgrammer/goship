@@ -47,6 +47,10 @@ on:
         description: 'Redis image tag'
         type: string
         default: '7-alpine'
+      runner:
+        description: 'GitHub Actions runner label'
+        type: string
+        default: 'ubuntu-latest'
     secrets:
       INTEGRATION_ENV:
         description: 'Newline-separated KEY=VALUE pairs injected as env vars'
@@ -65,7 +69,7 @@ env:
 jobs:
   integration-test:
     name: Integration Tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner }}
 
     services:
       postgres:

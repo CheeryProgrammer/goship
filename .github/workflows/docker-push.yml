@@ -27,6 +27,10 @@ on:
         description: 'Platforms to push (for multi-arch manifests)'
         type: string
         default: 'linux/amd64'
+      runner:
+        description: 'GitHub Actions runner label'
+        type: string
+        default: 'ubuntu-latest'
     secrets:
       REGISTRY_USERNAME:
         description: 'Registry login username'
@@ -45,7 +49,7 @@ on:
 jobs:
   push:
     name: Docker Push
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner }}
     outputs:
       pushed-tags: ${{ steps.push.outputs.pushed-tags }}
       image-digest: ${{ steps.push.outputs.digest }}

@@ -43,6 +43,10 @@ on:
         description: 'Contents of known_hosts for the target server (recommended over StrictHostKeyChecking=no)'
         type: string
         default: ''
+      runner:
+        description: 'GitHub Actions runner label'
+        type: string
+        default: 'ubuntu-latest'
     secrets:
       SSH_PRIVATE_KEY:
         description: 'SSH private key for the deploy user'
@@ -57,7 +61,7 @@ on:
 jobs:
   deploy:
     name: Deploy → ${{ inputs.environment }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner }}
     environment:
       name: ${{ inputs.environment }}
     concurrency:

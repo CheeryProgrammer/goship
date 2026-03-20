@@ -27,6 +27,10 @@ on:
         description: 'Upload coverage to Codecov'
         type: boolean
         default: false
+      runner:
+        description: 'GitHub Actions runner label'
+        type: string
+        default: 'ubuntu-latest'
     secrets:
       CODECOV_TOKEN:
         description: 'Codecov upload token (required when upload-coverage is true)'
@@ -35,7 +39,7 @@ on:
 jobs:
   test:
     name: Unit Tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

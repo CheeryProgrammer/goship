@@ -94,6 +94,10 @@ on:
         description: 'Docker Compose file for extra test services'
         type: string
         default: 'docker-compose.test.yml'
+      runner:
+        description: 'GitHub Actions runner label'
+        type: string
+        default: 'ubuntu-latest'
 
     secrets:
       CODECOV_TOKEN:
@@ -114,6 +118,7 @@ jobs:
       go-version: ${{ inputs.go-version }}
       sqlc-version: ${{ inputs.sqlc-version }}
       working-directory: ${{ inputs.working-directory }}
+      runner: ${{ inputs.runner }}
 
   lint:
     name: Lint
@@ -123,6 +128,7 @@ jobs:
       working-directory: ${{ inputs.working-directory }}
       golangci-lint-version: ${{ inputs.golangci-lint-version }}
       timeout: ${{ inputs.lint-timeout }}
+      runner: ${{ inputs.runner }}
 
   build:
     name: Build
@@ -134,6 +140,7 @@ jobs:
       working-directory: ${{ inputs.working-directory }}
       binary-name: ${{ inputs.binary-name }}
       main-package: ${{ inputs.main-package }}
+      runner: ${{ inputs.runner }}
 
   test:
     name: Test
@@ -147,6 +154,7 @@ jobs:
       test-packages: ${{ inputs.test-packages }}
       coverage-threshold: ${{ inputs.coverage-threshold }}
       upload-coverage: ${{ inputs.upload-coverage }}
+      runner: ${{ inputs.runner }}
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
@@ -165,5 +173,6 @@ jobs:
       postgres-version: ${{ inputs.postgres-version }}
       redis-enabled: ${{ inputs.redis-enabled }}
       redis-version: ${{ inputs.redis-version }}
+      runner: ${{ inputs.runner }}
     secrets:
       INTEGRATION_ENV: ${{ secrets.INTEGRATION_ENV }}

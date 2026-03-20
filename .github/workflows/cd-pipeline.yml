@@ -99,6 +99,10 @@ on:
         description: 'known_hosts entry for the target server'
         type: string
         default: ''
+      runner:
+        description: 'GitHub Actions runner label'
+        type: string
+        default: 'ubuntu-latest'
 
     secrets:
       REGISTRY_USERNAME:
@@ -125,7 +129,7 @@ on:
 jobs:
   resolve-tag:
     name: Resolve image tag
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner }}
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
@@ -154,6 +158,7 @@ jobs:
       cache-from: ${{ inputs.cache-from }}
       cache-to: ${{ inputs.cache-to }}
       push: true
+      runner: ${{ inputs.runner }}
     secrets:
       REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
       REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
@@ -174,6 +179,7 @@ jobs:
       ssh-user: ${{ inputs.ssh-user }}
       ssh-port: ${{ inputs.ssh-port }}
       ssh-known-hosts: ${{ inputs.ssh-known-hosts }}
+      runner: ${{ inputs.runner }}
     secrets:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -197,6 +203,7 @@ jobs:
       compose-file-remote: ${{ inputs.compose-file-remote }}
       service-name: ${{ inputs.service-name }}
       ssh-known-hosts: ${{ inputs.ssh-known-hosts }}
+      runner: ${{ inputs.runner }}
     secrets:
       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}

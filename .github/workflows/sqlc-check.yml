@@ -18,11 +18,15 @@ on:
         description: 'Working directory relative to repo root'
         type: string
         default: '.'
+      runner:
+        description: 'GitHub Actions runner label'
+        type: string
+        default: 'ubuntu-latest'
 
 jobs:
   sqlc-check:
     name: sqlc generate
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

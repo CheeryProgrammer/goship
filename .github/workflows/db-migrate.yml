@@ -59,6 +59,10 @@ on:
         description: 'Database port to forward through the SSH tunnel'
         type: string
         default: '5432'
+      runner:
+        description: 'GitHub Actions runner label'
+        type: string
+        default: 'ubuntu-latest'
     secrets:
       DATABASE_URL:
         description: 'Full database URL (e.g. postgres://user:pass@localhost:5432/db?sslmode=disable)'
@@ -70,7 +74,7 @@ on:
 jobs:
   migrate:
     name: DB Migration (${{ inputs.direction }}) — ${{ inputs.environment }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner }}
     environment: ${{ inputs.environment }}
     steps:
       - name: Checkout
