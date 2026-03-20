@@ -114,10 +114,21 @@ jobs:
       - name: Install golang-migrate
         if: ${{ inputs.migration-tool == 'golang-migrate' }}
         run: |
-          curl -sSL \
-            "https://github.com/golang-migrate/migrate/releases/download/${{ inputs.golang-migrate-version }}/migrate.linux-amd64.tar.gz" \
-            | tar xz -C /usr/local/bin migrate
-          migrate -version
+          if command -v migrate &>/dev/null; then
+            echo "migrate already installed: $(migrate -version)"
+          else
+            if [ -w /usr/local/bin ]; then
+              INSTALL_DIR=/usr/local/bin
+            else
+              INSTALL_DIR="$HOME/.local/bin"
+              mkdir -p "$INSTALL_DIR"
+              echo "$INSTALL_DIR" >> $GITHUB_PATH
+            fi
+            curl -sSL \
+              "https://github.com/golang-migrate/migrate/releases/download/${{ inputs.golang-migrate-version }}/migrate.linux-amd64.tar.gz" \
+              | tar xz -C "$INSTALL_DIR" migrate
+            migrate -version
+          fi
 
       - name: Run golang-migrate (dry-run)
         if: ${{ inputs.migration-tool == 'golang-migrate' && inputs.dry-run }}
