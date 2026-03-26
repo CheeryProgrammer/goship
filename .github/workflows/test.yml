@@ -27,6 +27,10 @@ on:
         description: 'Upload coverage to Codecov'
         type: boolean
         default: false
+      artifact-retention-days:
+        description: 'Retention days for the coverage artifact'
+        type: number
+        default: 7
       runner:
         description: 'GitHub Actions runner label'
         type: string
@@ -82,4 +86,4 @@ jobs:
         with:
           name: coverage-${{ github.sha }}
           path: ${{ inputs.working-directory }}/coverage.out
-          retention-days: 7
+          retention-days: ${{ inputs.artifact-retention-days }}
