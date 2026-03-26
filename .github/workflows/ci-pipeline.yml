@@ -60,6 +60,10 @@ on:
         description: 'Upload coverage to Codecov'
         type: boolean
         default: false
+      artifact-retention-days:
+        description: 'Retention days for build and coverage artifacts (1 = minimal storage)'
+        type: number
+        default: 7
 
       # Integration tests
       run-integration-tests:
@@ -140,6 +144,7 @@ jobs:
       working-directory: ${{ inputs.working-directory }}
       binary-name: ${{ inputs.binary-name }}
       main-package: ${{ inputs.main-package }}
+      artifact-retention-days: ${{ inputs.artifact-retention-days }}
       runner: ${{ inputs.runner }}
 
   test:
@@ -154,6 +159,7 @@ jobs:
       test-packages: ${{ inputs.test-packages }}
       coverage-threshold: ${{ inputs.coverage-threshold }}
       upload-coverage: ${{ inputs.upload-coverage }}
+      artifact-retention-days: ${{ inputs.artifact-retention-days }}
       runner: ${{ inputs.runner }}
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
