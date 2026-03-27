@@ -68,6 +68,10 @@ on:
         description: 'Retention days for build and coverage artifacts (1 = minimal storage)'
         type: number
         default: 7
+      upload-coverage-artifact:
+        description: 'Upload coverage.out as workflow artifact'
+        type: boolean
+        default: true
 
       # Integration tests
       run-integration-tests:
@@ -165,6 +169,7 @@ jobs:
       coverage-threshold: ${{ inputs.coverage-threshold }}
       upload-coverage: ${{ inputs.upload-coverage }}
       artifact-retention-days: ${{ inputs.artifact-retention-days }}
+      upload-coverage-artifact: ${{ inputs.upload-coverage-artifact }}
       runner: ${{ inputs.runner }}
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
