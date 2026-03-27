@@ -60,6 +60,10 @@ on:
         description: 'Upload coverage to Codecov'
         type: boolean
         default: false
+      upload-artifact:
+        description: 'Whether to upload the built binary as a workflow artifact'
+        type: boolean
+        default: true
       artifact-retention-days:
         description: 'Retention days for build and coverage artifacts (1 = minimal storage)'
         type: number
@@ -144,6 +148,7 @@ jobs:
       working-directory: ${{ inputs.working-directory }}
       binary-name: ${{ inputs.binary-name }}
       main-package: ${{ inputs.main-package }}
+      upload-artifact: ${{ inputs.upload-artifact }}
       artifact-retention-days: ${{ inputs.artifact-retention-days }}
       runner: ${{ inputs.runner }}
 
