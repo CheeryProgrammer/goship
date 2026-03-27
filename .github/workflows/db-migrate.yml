@@ -122,7 +122,7 @@ jobs:
             else
               INSTALL_DIR="$HOME/.local/bin"
               mkdir -p "$INSTALL_DIR"
-              echo "$INSTALL_DIR" >> $GITHUB_PATH
+              echo "$INSTALL_DIR" >> "$GITHUB_PATH"
             fi
             curl -sSL \
               "https://github.com/golang-migrate/migrate/releases/download/${{ inputs.golang-migrate-version }}/migrate.linux-amd64.tar.gz" \
