@@ -31,6 +31,10 @@ on:
         description: 'Retention days for the coverage artifact'
         type: number
         default: 7
+      upload-coverage-artifact:
+        description: 'Upload coverage.out as workflow artifact'
+        type: boolean
+        default: true
       runner:
         description: 'GitHub Actions runner label'
         type: string
@@ -82,6 +86,7 @@ jobs:
           fail_ci_if_error: true
 
       - name: Archive coverage report
+        if: ${{ inputs.upload-coverage-artifact }}
         uses: actions/upload-artifact@v4
         with:
           name: coverage-${{ github.sha }}
