@@ -126,7 +126,9 @@ jobs:
             [ -n "$lbl" ] && LABEL_FLAGS+=(--label "$lbl")
           done <<< "$META_LABELS"
 
-          MANIFEST_NAME="goship-manifest-$$"
+          MANIFEST_NAME="goship-manifest-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+
+          buildah manifest rm "$MANIFEST_NAME" 2>/dev/null || true
 
           buildah build \
             --jobs=2 \
@@ -146,3 +148,5 @@ jobs:
             done <<< "$META_TAGS"
             echo "digest=$(cat "$DIGEST_FILE")" >> "$GITHUB_OUTPUT"
           fi
+
+          buildah manifest rm "$MANIFEST_NAME" 2>/dev/null || true
