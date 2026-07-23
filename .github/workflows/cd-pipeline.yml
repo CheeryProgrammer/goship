@@ -95,6 +95,22 @@ on:
         description: 'Docker Compose service name to update (empty = all)'
         type: string
         default: ''
+      strategy:
+        description: 'Deployment strategy: recreate (default) | blue-green'
+        type: string
+        default: 'recreate'
+      blue-service:
+        description: 'Blue service name (blue-green strategy only)'
+        type: string
+        default: ''
+      green-service:
+        description: 'Green service name (blue-green strategy only)'
+        type: string
+        default: ''
+      health-timeout:
+        description: 'Seconds to wait for the new color to become healthy (blue-green strategy only)'
+        type: string
+        default: '120'
       ssh-known-hosts:
         description: 'known_hosts entry for the target server'
         type: string
@@ -202,6 +218,10 @@ jobs:
       compose-file-local: ${{ inputs.compose-file-local }}
       compose-file-remote: ${{ inputs.compose-file-remote }}
       service-name: ${{ inputs.service-name }}
+      strategy: ${{ inputs.strategy }}
+      blue-service: ${{ inputs.blue-service }}
+      green-service: ${{ inputs.green-service }}
+      health-timeout: ${{ inputs.health-timeout }}
       ssh-known-hosts: ${{ inputs.ssh-known-hosts }}
       runner: ${{ inputs.runner }}
     secrets:
