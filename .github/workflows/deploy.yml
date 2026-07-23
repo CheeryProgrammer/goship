@@ -39,6 +39,22 @@ on:
         description: 'Docker Compose service name to update (empty = all services)'
         type: string
         default: ''
+      strategy:
+        description: 'Deployment strategy: recreate (default) | blue-green'
+        type: string
+        default: 'recreate'
+      blue-service:
+        description: 'Blue service name (blue-green strategy only)'
+        type: string
+        default: ''
+      green-service:
+        description: 'Green service name (blue-green strategy only)'
+        type: string
+        default: ''
+      health-timeout:
+        description: 'Seconds to wait for the new color to become healthy (blue-green strategy only)'
+        type: string
+        default: '120'
       ssh-known-hosts:
         description: 'Contents of known_hosts for the target server (recommended over StrictHostKeyChecking=no)'
         type: string
@@ -121,6 +137,7 @@ jobs:
           ENDSSH
 
       - name: Update and restart service
+        if: ${{ inputs.strategy != 'blue-green' }}
         env:
           IMAGE: ${{ inputs.image-name }}:${{ inputs.image-tag }}
         run: |
@@ -148,7 +165,107 @@ jobs:
             docker image prune -f
           ENDSSH
 
+      - name: Blue-Green deploy
+        if: ${{ inputs.strategy == 'blue-green' }}
+        env:
+          IMAGE: ${{ inputs.image-name }}:${{ inputs.image-tag }}
+        run: |
+          ssh -p ${{ inputs.ssh-port }} ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} \
+            IMAGE="$IMAGE" \
+            bash <<'ENDSSH'
+            set -euo pipefail
+            COMPOSE_FILE="${{ inputs.compose-file-remote }}"
+            # ~ is not expanded inside double quotes; replace it explicitly so docker compose gets an absolute path
+            COMPOSE_FILE="${COMPOSE_FILE/#\~/$HOME}"
+            BLUE="${{ inputs.blue-service }}"
+            GREEN="${{ inputs.green-service }}"
+            HEALTH_TIMEOUT="${{ inputs.health-timeout }}"
+
+            if [ -z "${BLUE}" ] || [ -z "${GREEN}" ]; then
+              echo "::error::blue-green strategy requires both 'blue-service' and 'green-service' inputs."
+              exit 1
+            fi
+
+            # Export IMAGE so compose can reference it via $IMAGE in the compose file
+            export IMAGE="${IMAGE}"
+
+            compose() { docker compose -f "${COMPOSE_FILE}" "$@"; }
+
+            # A service is "running" when it has a container whose State.Running is true.
+            is_running() {
+              svc="$1"
+              cid=$(compose ps -q "${svc}" 2>/dev/null || true)
+              [ -n "${cid}" ] || return 1
+              running=$(docker inspect -f '{{.State.Running}}' "${cid}" 2>/dev/null || echo "false")
+              [ "${running}" = "true" ]
+            }
+
+            # Wait for a service's container to report State.Health == healthy.
+            wait_healthy() {
+              svc="$1"
+              cid=$(compose ps -q "${svc}")
+              if [ -z "${cid}" ]; then
+                echo "::error::No container found for service '${svc}'."
+                return 1
+              fi
+              echo "Waiting up to ${HEALTH_TIMEOUT}s for '${svc}' to become healthy …"
+              elapsed=0
+              while [ "${elapsed}" -lt "${HEALTH_TIMEOUT}" ]; do
+                health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "${cid}" 2>/dev/null || echo "none")
+                case "${health}" in
+                  healthy)
+                    echo "'${svc}' is healthy."
+                    return 0
+                    ;;
+                  none)
+                    echo "::error::Service '${svc}' has no healthcheck; blue-green requires a per-color health check."
+                    return 1
+                    ;;
+                esac
+                sleep 3
+                elapsed=$((elapsed + 3))
+              done
+              echo "::error::Service '${svc}' did not become healthy within ${HEALTH_TIMEOUT}s."
+              docker inspect -f '{{json .State.Health}}' "${cid}" || true
+              compose logs --tail=50 "${svc}" || true
+              return 1
+            }
+
+            # Determine the active color (if any).
+            ACTIVE=""
+            INACTIVE=""
+            if is_running "${BLUE}"; then
+              ACTIVE="${BLUE}"
+              INACTIVE="${GREEN}"
+            elif is_running "${GREEN}"; then
+              ACTIVE="${GREEN}"
+              INACTIVE="${BLUE}"
+            fi
+
+            if [ -z "${ACTIVE}" ]; then
+              # Neither color running: cold start with a one-time transitional downtime.
+              echo "No active color running — cold-starting '${BLUE}' (one-time transitional downtime)."
+              compose down --remove-orphans
+              compose up -d --no-deps --pull never "${BLUE}"
+              wait_healthy "${BLUE}"
+              docker image prune -f
+              echo "Cold start complete: '${BLUE}' is live."
+              exit 0
+            fi
+
+            echo "Active color: '${ACTIVE}'. Rolling out new image to inactive color '${INACTIVE}' …"
+            compose up -d --no-deps --pull never "${INACTIVE}"
+            wait_healthy "${INACTIVE}"
+
+            # New color is healthy — SO_REUSEPORT lets both bind the same port during the overlap.
+            echo "'${INACTIVE}' is healthy — stopping previous color '${ACTIVE}'."
+            compose stop "${ACTIVE}"
+            docker image prune -f
+            echo "Blue-green switch complete: '${INACTIVE}' is now live."
+          ENDSSH
+
       - name: Verify service is healthy
+        if: ${{ inputs.strategy != 'blue-green' }}
         run: |
           ssh -p ${{ inputs.ssh-port }} ${{ inputs.ssh-user }}@${{ inputs.ssh-host }} bash <<'ENDSSH'
             set -euo pipefail
