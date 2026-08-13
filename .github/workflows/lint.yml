@@ -48,5 +48,9 @@ jobs:
         uses: golangci/golangci-lint-action@v9
         with:
           version: ${{ inputs.golangci-lint-version }}
+          # Ставим линтер через прокси Go-модулей, а не качаем бинарь с GitHub Releases:
+          # на self-hosted раннере скачивание релиза регулярно падает с socket hang up,
+          # и падение линта (первого джоба) молча блокирует весь пайплайн, включая деплой.
+          install-mode: goinstall
           working-directory: ${{ inputs.working-directory }}
           args: --timeout=${{ inputs.timeout }} ${{ inputs.extra-args }}
