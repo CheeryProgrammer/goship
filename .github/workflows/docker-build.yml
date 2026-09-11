@@ -116,6 +116,8 @@ jobs:
           META_LABELS: ${{ steps.meta.outputs.labels }}
           META_TAGS: ${{ steps.meta.outputs.tags }}
         run: |
+          set -euo pipefail
+
           BUILD_ARG_FLAGS=()
           while IFS= read -r arg; do
             [ -n "$arg" ] && BUILD_ARG_FLAGS+=(--build-arg "$arg")
@@ -141,12 +143,51 @@ jobs:
 
           if [ "${{ inputs.push }}" = "true" ]; then
             DIGEST_FILE=$(mktemp)
+            PUSHED_TAGS=()
             while IFS= read -r tag; do
-              [ -n "$tag" ] && buildah manifest push --all --format v2s2 \
-                --digestfile "$DIGEST_FILE" \
-                "$MANIFEST_NAME" "docker://$tag"
+              if [ -n "$tag" ]; then
+                # buildah's built-in retry-on-timeout logic has been observed to exhaust
+                # its retries against a slow/flaky registry, log the final attempt as a
+                # "Failed, retrying in Ns ... (n/n)" warning, and still exit 0 — so the
+                # exit code here must be checked explicitly rather than trusted implicitly.
+                if ! buildah manifest push --all --format v2s2 \
+                  --digestfile "$DIGEST_FILE" \
+                  "$MANIFEST_NAME" "docker://$tag"; then
+                  echo "::error::buildah manifest push failed for docker://$tag (registry push failed or exhausted retries)" >&2
+                  exit 1
+                fi
+                PUSHED_TAGS+=("$tag")
+              fi
             done <<< "$META_TAGS"
             echo "digest=$(cat "$DIGEST_FILE")" >> "$GITHUB_OUTPUT"
+
+            {
+              echo "pushed-tags<<PUSHED_TAGS_EOF"
+              printf '%s\n' "${PUSHED_TAGS[@]}"
+              echo "PUSHED_TAGS_EOF"
+            } >> "$GITHUB_OUTPUT"
           fi
 
           buildah manifest rm "$MANIFEST_NAME" 2>/dev/null || true
+
+      - name: Verify pushed image resolves in registry
+        if: ${{ inputs.push }}
+        env:
+          PUSHED_TAGS: ${{ steps.build.outputs.pushed-tags }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "$PUSHED_TAGS" ]; then
+            echo "::error::push was requested but no tags were recorded as pushed" >&2
+            exit 1
+          fi
+
+          while IFS= read -r tag; do
+            [ -z "$tag" ] && continue
+            echo "Resolving docker://$tag against the registry (manifest HEAD)..."
+            if ! INSPECT_OUTPUT=$(buildah manifest inspect "docker://$tag" 2>&1); then
+              echo "$INSPECT_OUTPUT" >&2
+              echo "::error::Tag $tag does not resolve in the registry right after push — the push likely failed silently (e.g. exhausted retries) even though the push step reported success." >&2
+              exit 1
+            fi
+          done <<< "$PUSHED_TAGS"
