@@ -146,10 +146,11 @@ jobs:
             PUSHED_TAGS=()
             while IFS= read -r tag; do
               if [ -n "$tag" ]; then
-                # buildah's built-in retry-on-timeout logic has been observed to exhaust
-                # its retries against a slow/flaky registry, log the final attempt as a
-                # "Failed, retrying in Ns ... (n/n)" warning, and still exit 0 — so the
-                # exit code here must be checked explicitly rather than trusted implicitly.
+                # This exit-code check is already covered by `set -e` (the push is the
+                # last command in this branch); it exists to print a clear ::error:: with
+                # the offending tag instead of a bare non-zero exit. It does NOT protect
+                # against buildah exhausting its retries and still returning 0 — that
+                # case is only caught by the registry-resolve check in the next step.
                 if ! buildah manifest push --all --format v2s2 \
                   --digestfile "$DIGEST_FILE" \
                   "$MANIFEST_NAME" "docker://$tag"; then
@@ -182,12 +183,24 @@ jobs:
             exit 1
           fi
 
+          MAX_ATTEMPTS=5
+
           while IFS= read -r tag; do
             [ -z "$tag" ] && continue
             echo "Resolving docker://$tag against the registry (manifest HEAD)..."
-            if ! INSPECT_OUTPUT=$(buildah manifest inspect "docker://$tag" 2>&1); then
-              echo "$INSPECT_OUTPUT" >&2
-              echo "::error::Tag $tag does not resolve in the registry right after push — the push likely failed silently (e.g. exhausted retries) even though the push step reported success." >&2
-              exit 1
-            fi
+            attempt=1
+            while true; do
+              if INSPECT_OUTPUT=$(buildah manifest inspect "docker://$tag" 2>&1); then
+                break
+              fi
+              if [ "$attempt" -ge "$MAX_ATTEMPTS" ]; then
+                echo "$INSPECT_OUTPUT" >&2
+                echo "::error::Tag $tag does not resolve in the registry after $MAX_ATTEMPTS attempts — the push likely failed silently (e.g. exhausted retries) even though the push step reported success." >&2
+                exit 1
+              fi
+              delay=$((2 ** attempt))
+              echo "Attempt $attempt/$MAX_ATTEMPTS failed, retrying in ${delay}s..." >&2
+              sleep "$delay"
+              attempt=$((attempt + 1))
+            done
           done <<< "$PUSHED_TAGS"
