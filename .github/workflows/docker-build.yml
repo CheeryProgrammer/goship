@@ -175,13 +175,80 @@ jobs:
         if: ${{ inputs.push }}
         env:
           PUSHED_TAGS: ${{ steps.build.outputs.pushed-tags }}
+          REGISTRY: ${{ inputs.registry }}
+          REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
         run: |
           set -euo pipefail
 
+          # `buildah manifest inspect` only reads local manifest lists and rejects a
+          # docker:// transport ("unsupported transport ... for looking up local
+          # images"), so it cannot be used here. skopeo (same containers/image family
+          # as buildah, and it shares buildah's auth file) does hit the registry, so
+          # prefer it when present; otherwise fall back to a raw registry API v2 call.
           if [ -z "$PUSHED_TAGS" ]; then
             echo "::error::push was requested but no tags were recorded as pushed" >&2
             exit 1
           fi
+
+          USE_SKOPEO=0
+          if command -v skopeo >/dev/null 2>&1; then
+            USE_SKOPEO=1
+            echo "skopeo found on this runner — using it to verify pushed manifests."
+          else
+            echo "skopeo not found on this runner — falling back to a direct registry API v2 check."
+          fi
+
+          resolve_via_skopeo() {
+            skopeo inspect --raw "docker://$1"
+          }
+
+          # Generic OCI Distribution Spec bearer-token flow: try anonymously, and on
+          # 401 fetch a token from the realm advertised in WWW-Authenticate. Works
+          # against any compliant registry (ghcr.io, docker.io, ...), not just ghcr.io.
+          resolve_via_registry_api() {
+            local tag="$1"
+            local repo="${tag#"${REGISTRY}/"}"
+            local ref="${repo##*:}"
+            repo="${repo%:"${ref}"}"
+            local accept='application/vnd.oci.image.index.v1+json,application/vnd.oci.image.manifest.v1+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.docker.distribution.manifest.v2+json'
+            local url="https://${REGISTRY}/v2/${repo}/manifests/${ref}"
+
+            local headers status
+            headers=$(curl -sS -D - -o /dev/null -H "Accept: ${accept}" "$url") || return 1
+            status=$(printf '%s' "$headers" | head -n1 | tr -d '\r' | awk '{print $2}')
+
+            [ "$status" = "200" ] && return 0
+            if [ "$status" != "401" ]; then
+              echo "unexpected HTTP $status from $url" >&2
+              return 1
+            fi
+
+            local www_auth realm service scope token_response token
+            www_auth=$(printf '%s' "$headers" | grep -i '^www-authenticate:' | head -n1 || true)
+            realm=$(printf '%s' "$www_auth" | sed -n 's/.*realm="\([^"]*\)".*/\1/p')
+            service=$(printf '%s' "$www_auth" | sed -n 's/.*service="\([^"]*\)".*/\1/p')
+            scope=$(printf '%s' "$www_auth" | sed -n 's/.*scope="\([^"]*\)".*/\1/p')
+            [ -z "$scope" ] && scope="repository:${repo}:pull"
+            if [ -z "$realm" ]; then
+              echo "no WWW-Authenticate realm in 401 response from $url" >&2
+              return 1
+            fi
+
+            token_response=$(curl -sS -u "${REGISTRY_USERNAME}:${REGISTRY_PASSWORD}" \
+              --get "$realm" \
+              --data-urlencode "service=${service}" \
+              --data-urlencode "scope=${scope}") || return 1
+            token=$(printf '%s' "$token_response" | sed -n 's/.*"token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+            [ -z "$token" ] && token=$(printf '%s' "$token_response" | sed -n 's/.*"access_token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+            if [ -z "$token" ]; then
+              echo "failed to obtain registry auth token from $realm" >&2
+              return 1
+            fi
+
+            status=$(curl -sS -o /dev/null -w '%{http_code}' -H "Accept: ${accept}" -H "Authorization: Bearer ${token}" "$url") || return 1
+            [ "$status" = "200" ]
+          }
 
           MAX_ATTEMPTS=5
 
@@ -190,8 +257,10 @@ jobs:
             echo "Resolving docker://$tag against the registry (manifest HEAD)..."
             attempt=1
             while true; do
-              if INSPECT_OUTPUT=$(buildah manifest inspect "docker://$tag" 2>&1); then
-                break
+              if [ "$USE_SKOPEO" = "1" ]; then
+                INSPECT_OUTPUT=$(resolve_via_skopeo "$tag" 2>&1) && break
+              else
+                INSPECT_OUTPUT=$(resolve_via_registry_api "$tag" 2>&1) && break
               fi
               if [ "$attempt" -ge "$MAX_ATTEMPTS" ]; then
                 echo "$INSPECT_OUTPUT" >&2
