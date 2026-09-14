@@ -176,7 +176,10 @@ jobs:
 
   integration-test:
     name: Integration Test
-    if: ${{ inputs.run-integration-tests }}
+    if: >-
+      always() && inputs.run-integration-tests
+      && needs.build.result == 'success'
+      && needs.test.result == 'success'
     needs: [build, test]
     uses: CheeryProgrammer/goship/.github/workflows/integration-test.yml@main
     with:
